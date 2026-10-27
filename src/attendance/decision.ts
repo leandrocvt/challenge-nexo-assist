@@ -67,9 +67,14 @@ export type AgentAnswer = {
   toolUses: ToolUse[];
 };
 
+export type ModelMessage =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string };
+
 export type Agent = {
   decide(input: {
     message: string;
+    messages: ModelMessage[];
     employeeId: string;
     conversationId: string;
   }): AgentAnswer | Promise<AgentAnswer>;

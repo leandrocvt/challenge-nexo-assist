@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openApp, type App } from "../server/app";
 import { TicketUnavailableError } from "../tickets/errors";
 import { AttendanceError } from "./errors";
-import { decisionSchema, type Agent, type Decision } from "./decision";
+import { decisionSchema, type Agent, type Decision, type ModelMessage } from "./decision";
 
 let app: App;
 
@@ -13,6 +13,27 @@ beforeEach(async () => {
 
 afterEach(() => {
   app.close();
+});
+
+describe("janela do modelo", () => {
+  it("não reenvia as falas que ficaram fora das seis mais recentes", async () => {
+    const ana = await conversation("ana");
+    const seen: ModelMessage[][] = [];
+    const fake: Agent = {
+      decide(input) {
+        seen.push(input.messages);
+        return { decision: reply("ok"), toolUses: [] };
+      },
+    };
+    for (let index = 0; index < 5; index += 1) {
+      await send(ana.id, fake, `fala ${index}`);
+    }
+    expect(seen[0]).toEqual([{ role: "user", content: "fala 0" }]);
+    const last = seen[4] ?? [];
+    expect(last[0]?.content).toBe("Há 2 mensagens anteriores desta conversa que não entram nesta chamada.");
+    expect(last.some((message) => message.content === "fala 0")).toBe(false);
+    expect(last.at(-1)).toEqual({ role: "user", content: "fala 4" });
+  });
 });
 
 describe("rascunho", () => {

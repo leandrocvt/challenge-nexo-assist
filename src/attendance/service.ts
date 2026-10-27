@@ -8,6 +8,7 @@ import { canAcceptSessionMessage, classifyPriority, SESSION_MESSAGE_LIMIT, slaDu
 import { TicketNotFoundError, type Ticket, type TicketService } from "../tickets";
 import { categorySchema, ticketTypeSchema } from "../tickets/types";
 
+import { modelWindow, type SpokenMessage } from "../agent/window";
 import { decisionSchema, type Agent, type Decision, type ToolUse, type TransferReason } from "./decision";
 import { AttendanceError } from "./errors";
 import { applyGate, type DraftPlan, type GateResult } from "./gate";
@@ -129,8 +130,10 @@ export class Attendance {
     }
 
     console.info("nexo: modelo chamado");
+    const context = modelWindow(await this.spokenMessages(input.conversationId), input.text);
     const answer = await input.agent.decide({
       message: input.text,
+      messages: context.messages,
       employeeId: input.employeeId,
       conversationId: input.conversationId,
     });
@@ -446,6 +449,25 @@ export class Attendance {
 
   private async reload(conversationId: string): Promise<Conversation> {
     return this.existing(conversationId);
+  }
+
+  private async spokenMessages(conversationId: string): Promise<SpokenMessage[]> {
+    const result = await this.client.execute({
+      sql: `SELECT m.author, m.body
+            FROM messages m
+            JOIN sessions s ON s.id = m.session_id
+            WHERE s.conversation_id = ?
+              AND m.author IN ('employee', 'agent', 'analyst')
+            ORDER BY m.created_at ASC, m.rowid ASC`,
+      args: [conversationId],
+    });
+    return result.rows.flatMap((row) => {
+      const author = text(row, "author");
+      if (author !== "employee" && author !== "agent" && author !== "analyst") {
+        return [];
+      }
+      return [{ author, body: text(row, "body") }];
+    });
   }
 
   private async sessionOf(conversation: Conversation, now: Date): Promise<{ id: string; messageCount: number }> {

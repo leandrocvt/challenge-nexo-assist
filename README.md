@@ -12,7 +12,9 @@ npm run typecheck
 npm run dev
 ```
 
-`npm run eval` chama o modelo e fica fora do `npm test`. Ele exige `OPENAI_API_KEY`. O modelo padrão é `openai/gpt-5-nano`; `NEXO_MODEL` troca o id no formato `provider/model`.
+`npm run eval` chama o modelo e fica fora do `npm test`. Ele exige `OPENAI_API_KEY` e o banco local com o seed. O modelo padrão é `openai/gpt-5-nano`, um modelo pequeno para a chamada estruturada e as duas tools de leitura. `NEXO_MODEL` troca o id no formato `provider/model`.
+
+Cada chamada manda só as 6 falas mais recentes da conversa, mais a fala atual. Se houver mais, o modelo recebe a contagem do que ficou de fora, não o texto. Ficam de fora o rastro da decisão, o payload dos cards, avisos de sistema, a memória do Mastra, qualquer tool de escrita, o `employeeId` escolhido pelo modelo e as outras conversas. O teste de prioridade e prazo continua no `npm test`, sem rede. O eval cobre dúvida sem chamado, abertura com confirmação, duplicidade, reabertura, crítico, vencido, fora de TI e chamado alheio. A gravação do chamado continua na confirmação do rascunho, não nessa chamada.
 
 ```bash
 npm run eval

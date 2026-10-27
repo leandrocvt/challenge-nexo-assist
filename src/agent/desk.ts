@@ -47,7 +47,7 @@ export const mastraDeskAgent: Agent = {
     const requestContext = new RequestContext<{ employeeId: string; conversationId: string }>();
     requestContext.set("employeeId", input.employeeId);
     requestContext.set("conversationId", input.conversationId);
-    const result = await deskAgent.generate(input.message, {
+    const result = await deskAgent.generate(input.messages, {
       requestContext,
       maxSteps: 5,
       structuredOutput: {
