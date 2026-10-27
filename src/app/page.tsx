@@ -7,8 +7,8 @@ export default function Home() {
         telas do Pencil.
       </p>
       <p>
-        Nesta etapa o serviço de chamados grava em SQLite, com prioridade,
-        prazo e reabertura calculados no código. O agent entra depois.
+        O login grava um cookie httpOnly. A lista de chamados só responde
+        para o funcionário da sessão. O agent entra depois.
       </p>
     </main>
   );

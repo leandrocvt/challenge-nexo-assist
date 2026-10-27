@@ -37,6 +37,10 @@ export class TicketService {
     return new TicketService(client);
   }
 
+  static bind(client: Client): TicketService {
+    return new TicketService(client);
+  }
+
   setFailure(mode: FailureMode): void {
     this.failure = mode;
   }

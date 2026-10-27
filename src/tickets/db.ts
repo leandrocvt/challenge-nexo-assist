@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS operations (
 );
 
 CREATE INDEX IF NOT EXISTS tickets_owner_idx ON tickets(owner_id);
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY,
+  employee_id TEXT NOT NULL REFERENCES employees(id),
+  state TEXT NOT NULL,
+  analyst_id TEXT REFERENCES employees(id),
+  active_session_id TEXT,
+  transfer_summary TEXT,
+  transfer_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS conversations_employee_idx ON conversations(employee_id);
 `;
 
 export function databaseFile(root = process.cwd()): string {
