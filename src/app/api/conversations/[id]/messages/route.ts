@@ -8,6 +8,24 @@ const bodySchema = z.object({
   text: z.string().trim().min(1),
 });
 
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const access = await requireEmployee(request);
+  if (isResponse(access)) {
+    return access;
+  }
+  const { id } = await context.params;
+  try {
+    const history = await access.app.attendance.readHistory(access.employee, id);
+    return NextResponse.json(history);
+  } catch (error) {
+    const response = toErrorResponse(error);
+    if (response) {
+      return response;
+    }
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const access = await requireEmployee(request);
   if (isResponse(access)) {

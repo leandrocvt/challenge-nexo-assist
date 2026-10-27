@@ -1,6 +1,6 @@
 # Nexo Assist
 
-Login com cookie httpOnly, chamados em SQLite (`data/nexo.db`, fora do Git) e o agent Mastra só de leitura. Sem `OPENAI_API_KEY`, o chat usa o agent falso. Ainda não há as telas do protótipo.
+Login com cookie httpOnly, chamados em SQLite (`data/nexo.db`, fora do Git), fila do analista e o agent Mastra só de leitura. Sem `OPENAI_API_KEY`, o chat usa o agent falso. Ainda não há as telas do protótipo.
 
 ## Rodar
 
@@ -50,4 +50,8 @@ Sem `OPENAI_API_KEY`, estas frases do agent falso ainda valem:
 - `Não sei o que aconteceu` transfere por segurança baixa.
 - `Isso é assunto de RH` não abre chamado.
 
-Com o cookie do Rafael, na conversa que ficou `aguardando_analista`: `POST /api/conversations/{id}/return` devolve ao agent, `POST /api/conversations/{id}/assume` assume, e `POST /api/conversations/{id}/close` só encerra depois de assumir. Enquanto espera ou está em atendimento, a mensagem da Ana é gravada e o agent falso não é chamado.
+`GET /api/conversations` lista as conversas da Ana. `GET /api/conversations/{id}/messages` devolve o histórico com intenção, evidências, regra, ação e segurança.
+
+Com o cookie do Rafael, `GET /api/console/conversations?filter=para_voce` mostra quem espera. Os filtros são `todas`, `para_voce`, `com_agent` e `minhas`. `q=INC-20311` acha a conversa da Ana e não o chamado do Bruno. `GET /api/conversations/{id}/tickets` lista só os chamados daquela pessoa.
+
+`POST /api/conversations/{id}/return` devolve ao agent. `POST .../assume` assume. `POST .../replies` só responde depois de assumir e, com `ticketId`, reinicia o prazo daquele chamado. `POST .../close` só encerra depois de assumir. Na espera e no atendimento, a mensagem da Ana é gravada e o servidor não registra chamada ao modelo.

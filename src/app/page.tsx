@@ -7,9 +7,9 @@ export default function Home() {
         telas do Pencil.
       </p>
       <p>
-        O login grava um cookie httpOnly. O atendimento pausa o agent,
-        guarda rascunho e só grava chamado na confirmação. Com
-        OPENAI_API_KEY, o Mastra lê artigos e chamados.
+        O login grava um cookie httpOnly. O chat confirma o rascunho
+        antes de gravar, e o console do analista lista a fila da conversa
+        aberta. As telas do Pencil entram depois.
       </p>
     </main>
   );

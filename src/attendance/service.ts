@@ -11,6 +11,7 @@ import { categorySchema, ticketTypeSchema } from "../tickets/types";
 import { decisionSchema, type Agent, type Decision, type ToolUse, type TransferReason } from "./decision";
 import { AttendanceError } from "./errors";
 import { applyGate, type DraftPlan, type GateResult } from "./gate";
+import { listConversations, readHistory, type QueueFilter } from "./inbox";
 
 const payloadSchema = z.object({
   operation: z.enum(["create", "update", "reopen"]),
@@ -127,6 +128,7 @@ export class Attendance {
       });
     }
 
+    console.info("nexo: modelo chamado");
     const answer = await input.agent.decide({
       message: input.text,
       employeeId: input.employeeId,
@@ -149,7 +151,7 @@ export class Attendance {
       agentCalled: true,
       paused: false,
       reply: gate.reply,
-      visibleActions: gate.visibleActions,
+      visibleActions,
       options: gate.options,
       trace: traceOf(decision, { ...gate, visibleActions }, answer.toolUses),
       draft: saved.draft,
@@ -257,6 +259,72 @@ export class Attendance {
     return this.existing(conversationId);
   }
 
+  listOwn(employeeId: string) {
+    return listConversations(this.client, { employeeId });
+  }
+
+  listQueue(analystId: string, filter: QueueFilter, query?: string) {
+    return listConversations(this.client, { analystId, filter, query });
+  }
+
+  async readHistory(viewer: { id: string; role: "funcionario" | "analista" }, conversationId: string) {
+    if (viewer.role === "funcionario") {
+      await this.owned(viewer.id, conversationId);
+    } else {
+      await this.existing(conversationId);
+    }
+    return readHistory(this.client, conversationId);
+  }
+
+  async ticketsFor(viewer: { id: string; role: "funcionario" | "analista" }, conversationId: string) {
+    const conversation =
+      viewer.role === "funcionario"
+        ? await this.owned(viewer.id, conversationId)
+        : await this.existing(conversationId);
+    return this.tickets.listByOwner(conversation.employeeId);
+  }
+
+  async replyAsAnalyst(input: {
+    analystId: string;
+    conversationId: string;
+    text: string;
+    ticketId: string | null;
+    now?: Date;
+  }): Promise<{ agentCalled: false; ticket: Ticket | null }> {
+    const now = input.now ?? new Date();
+    const conversation = await this.existing(input.conversationId);
+    if (conversation.state !== "em_atendimento") {
+      throw new AttendanceError("Assuma o atendimento para responder.", 409);
+    }
+    if (conversation.analystId !== input.analystId) {
+      throw new AttendanceError("Outro analista está neste atendimento.", 409);
+    }
+    const session = await this.sessionOf(conversation, now);
+    if (!canAcceptSessionMessage(session.messageCount)) {
+      throw new AttendanceError("Limite de 30 mensagens nesta sessão.", 422);
+    }
+
+    let ticket: Ticket | null = null;
+    if (input.ticketId) {
+      const current = await this.tickets.findByNumber(conversation.employeeId, input.ticketId, now);
+      if (!current) {
+        throw new AttendanceError("Chamado não encontrado.", 404);
+      }
+      ticket = await this.tickets.update(
+        {
+          ownerId: conversation.employeeId,
+          ticketId: current.id,
+          description: `${current.description}\n\n${input.text}`,
+        },
+        randomUUID(),
+        now,
+      );
+    }
+
+    await this.persistEmployeeOnly(conversation, session.id, input.text, now, "analyst");
+    return { agentCalled: false, ticket };
+  }
+
   private async writeTicket(employeeId: string, draft: DraftRecord, now: Date): Promise<Ticket> {
     const payload = draft.payload;
     const ticket =
@@ -304,10 +372,11 @@ export class Attendance {
     sessionId: string,
     text: string,
     now: Date,
+    author = "employee",
   ): Promise<number> {
     const tx = await this.client.transaction("write");
     try {
-      await insertMessage(tx, sessionId, "employee", text, null, now, true);
+      await insertMessage(tx, sessionId, author, text, null, now, true);
       const messageCount = await bumpSession(tx, sessionId, 1);
       await touch(tx, conversation.id, now);
       await tx.commit();
