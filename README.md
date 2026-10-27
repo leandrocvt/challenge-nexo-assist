@@ -1,6 +1,6 @@
 # Nexo Assist
 
-Login com cookie httpOnly, chamados em SQLite (`data/nexo.db`, fora do Git) e a máquina de atendimento com um agent falso. Ainda não há modelo nem as telas do protótipo.
+Login com cookie httpOnly, chamados em SQLite (`data/nexo.db`, fora do Git) e o agent Mastra só de leitura. Sem `OPENAI_API_KEY`, o chat usa o agent falso. Ainda não há as telas do protótipo.
 
 ## Rodar
 
@@ -10,6 +10,12 @@ copy .env.example .env
 npm test
 npm run typecheck
 npm run dev
+```
+
+`npm run eval` chama o modelo e fica fora do `npm test`. Ele exige `OPENAI_API_KEY`. O modelo padrão é `openai/gpt-5-nano`; `NEXO_MODEL` troca o id no formato `provider/model`.
+
+```bash
+npm run eval
 ```
 
 Defina `SESSION_SECRET` no `.env` antes do `npm run dev`. Qualquer senha não vazia entra para um e-mail do seed.
@@ -36,7 +42,7 @@ O analista entra com `rafael.lima@nexo.com.br` e outra senha. `GET /api/tickets`
 
 A resposta traz um rascunho e nenhum chamado novo. `POST /api/drafts/{id}/confirm` grava. Repetir a confirmação devolve o mesmo chamado.
 
-Outras frases do agent falso, ainda sem modelo:
+Sem `OPENAI_API_KEY`, estas frases do agent falso ainda valem:
 
 - `A empresa inteira está parada` monta rascunho crítico e pausa o agent.
 - `Quero falar com um analista` transfere.

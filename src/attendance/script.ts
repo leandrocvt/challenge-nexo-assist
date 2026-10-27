@@ -3,7 +3,7 @@ import type { Agent, Decision } from "./decision";
 /** Substituto do modelo nesta etapa. A frase escolhe uma decisão fixa; a política continua no código. */
 export const scriptedAgent: Agent = {
   decide({ message }) {
-    return decideFromText(message);
+    return { decision: decideFromText(message), toolUses: [] };
   },
 };
 

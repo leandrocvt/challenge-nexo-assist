@@ -8,7 +8,7 @@ import { canAcceptSessionMessage, classifyPriority, SESSION_MESSAGE_LIMIT, slaDu
 import { TicketNotFoundError, type Ticket, type TicketService } from "../tickets";
 import { categorySchema, ticketTypeSchema } from "../tickets/types";
 
-import { decisionSchema, type Agent, type Decision, type TransferReason } from "./decision";
+import { decisionSchema, type Agent, type Decision, type ToolUse, type TransferReason } from "./decision";
 import { AttendanceError } from "./errors";
 import { applyGate, type DraftPlan, type GateResult } from "./gate";
 
@@ -62,6 +62,7 @@ export type Turn = {
     transferReason: TransferReason | null;
     priority: string | null;
     slaDueAt: string | null;
+    toolUses: ToolUse[];
   } | null;
   draft: DraftCard | null;
 };
@@ -126,23 +127,31 @@ export class Attendance {
       });
     }
 
-    const decision = decisionSchema.parse(
-      input.agent.decide({
-        message: input.text,
-        employeeId: input.employeeId,
-        conversationId: input.conversationId,
-      }),
-    );
+    const answer = await input.agent.decide({
+      message: input.text,
+      employeeId: input.employeeId,
+      conversationId: input.conversationId,
+    });
+    const decision = decisionSchema.parse(answer.decision);
     const ownedTickets = await this.tickets.listByOwner(input.employeeId, now);
     const gate = applyGate(decision, ownedTickets, now);
-    const saved = await this.persistAgentTurn(conversation, session.id, input.text, decision, gate, now);
+    const visibleActions = [...labelsFromTools(answer.toolUses), ...gate.visibleActions];
+    const saved = await this.persistAgentTurn(
+      conversation,
+      session.id,
+      input.text,
+      decision,
+      { ...gate, visibleActions },
+      answer.toolUses,
+      now,
+    );
     return this.turn(saved.conversation, saved.messageCount, {
       agentCalled: true,
       paused: false,
       reply: gate.reply,
       visibleActions: gate.visibleActions,
       options: gate.options,
-      trace: traceOf(decision, gate),
+      trace: traceOf(decision, { ...gate, visibleActions }, answer.toolUses),
       draft: saved.draft,
     });
   }
@@ -317,6 +326,7 @@ export class Attendance {
     text: string,
     decision: Decision,
     gate: GateResult,
+    toolUses: ToolUse[],
     now: Date,
   ): Promise<{ conversation: Conversation; messageCount: number; draft: DraftCard | null }> {
     const tx = await this.client.transaction("write");
@@ -326,7 +336,7 @@ export class Attendance {
         visibleActions: gate.visibleActions,
         options: gate.options,
       }), now, true);
-      await insertTrace(tx, agentMessageId, decision, gate, now);
+      await insertTrace(tx, agentMessageId, decision, gate, toolUses, now);
       const draft = gate.draft ? await insertDraft(tx, conversation, gate.draft, now) : null;
       const messageCount = await bumpSession(tx, sessionId, 2);
       if (gate.transferReason) {
@@ -512,12 +522,19 @@ async function touch(tx: Transaction, conversationId: string, now: Date): Promis
   });
 }
 
-async function insertTrace(tx: Transaction, messageId: string, decision: Decision, gate: GateResult, now: Date): Promise<void> {
+async function insertTrace(
+  tx: Transaction,
+  messageId: string,
+  decision: Decision,
+  gate: GateResult,
+  toolUses: ToolUse[],
+  now: Date,
+): Promise<void> {
   await tx.execute({
     sql: `INSERT INTO decision_traces (
       id, message_id, intent, evidence, cited_rule, applied_rule, proposed_action, taken_action,
-      confidence, priority, sla_due_at, policy_refused, transfer_reason, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      confidence, priority, sla_due_at, policy_refused, transfer_reason, tool_ids, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       randomUUID(),
       messageId,
@@ -532,6 +549,7 @@ async function insertTrace(tx: Transaction, messageId: string, decision: Decisio
       gate.draft?.slaDueAt ?? null,
       gate.policyRefused ? 1 : 0,
       gate.transferReason,
+      JSON.stringify(toolUses),
       now.toISOString(),
     ],
   });
@@ -589,7 +607,26 @@ function buildSummary(text: string, decision: Decision, gate: GateResult): strin
   ].join("\n");
 }
 
-function traceOf(decision: Decision, gate: GateResult): Turn["trace"] {
+function labelsFromTools(toolUses: ToolUse[]): string[] {
+  const labels: string[] = [];
+  for (const use of toolUses) {
+    if (use.failed) {
+      continue;
+    }
+    if (use.id === "list-tickets") {
+      labels.push("consultou seus chamados");
+      if (use.ticketId) {
+        labels.push(`consultou o ${use.ticketId}`);
+      }
+    }
+    if (use.id === "search-articles") {
+      labels.push("buscou na central de ajuda");
+    }
+  }
+  return labels;
+}
+
+function traceOf(decision: Decision, gate: GateResult, toolUses: ToolUse[]): Turn["trace"] {
   return {
     intent: decision.intent,
     evidence: decision.evidence,
@@ -602,6 +639,7 @@ function traceOf(decision: Decision, gate: GateResult): Turn["trace"] {
     transferReason: gate.transferReason,
     priority: gate.draft?.priority ?? null,
     slaDueAt: gate.draft?.slaDueAt ?? null,
+    toolUses,
   };
 }
 

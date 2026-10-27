@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { scriptedAgent } from "../../../../../attendance/script";
+import { agentForRequest } from "../../../../../agent";
 import { errorResponse, isResponse, requireEmployee, toErrorResponse } from "../../../../../http/guard";
 
 const bodySchema = z.object({
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       employeeId: access.employee.id,
       conversationId: id,
       text: parsed.data.text,
-      agent: scriptedAgent,
+      agent: agentForRequest(),
     });
     return NextResponse.json(turn);
   } catch (error) {

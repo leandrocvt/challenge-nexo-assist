@@ -189,6 +189,30 @@ describe("limite de sessão", () => {
 });
 
 describe("regras que o código vence", () => {
+  it("prioridade citada como baixa vira crítica quando a empresa está parada", async () => {
+    const ana = await conversation("ana");
+    const claimed = opening("A empresa parou", {
+      impact: "empresa",
+      urgency: "parado",
+      category: "Outros",
+    });
+    const turn = await send(ana.id, agent({ ...claimed, claimedPriority: "baixa" }));
+    expect(turn.draft?.priority).toBe("critica");
+    expect(turn.trace?.priority).toBe("critica");
+    expect(turn.trace?.appliedRule).toBe("prioridade_critica");
+  });
+
+  it("segurança baixa transfere mesmo quando a proposta é um rascunho", async () => {
+    const ana = await conversation("ana");
+    const before = await countTickets("ana");
+    const turn = await send(ana.id, agent({ ...opening("VPN"), confidence: "baixo" }));
+    expect(turn.draft).toBeNull();
+    expect(turn.conversation.state).toBe("aguardando_analista");
+    expect(turn.conversation.transferReason).toBe("seguranca_baixa");
+    expect(turn.trace?.appliedRule).toBe("confianca_baixa");
+    expect(await countTickets("ana")).toBe(before);
+  });
+
   it("não abre rascunho para chamado de outra pessoa nem para reabertura vencida", async () => {
     const ana = await conversation("ana");
     const before = await countTickets("ana");
@@ -232,7 +256,7 @@ function agent(decision: Decision): Agent & { calls: number } {
     calls: 0,
     decide() {
       this.calls += 1;
-      return decision;
+      return { decision, toolUses: [] };
     },
   };
 }

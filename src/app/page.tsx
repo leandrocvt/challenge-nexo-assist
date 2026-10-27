@@ -8,7 +8,8 @@ export default function Home() {
       </p>
       <p>
         O login grava um cookie httpOnly. O atendimento pausa o agent,
-        guarda rascunho e só grava chamado na confirmação. O modelo entra depois.
+        guarda rascunho e só grava chamado na confirmação. Com
+        OPENAI_API_KEY, o Mastra lê artigos e chamados.
       </p>
     </main>
   );

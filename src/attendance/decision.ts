@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { impactSchema, urgencySchema } from "../policy";
+import { impactSchema, prioritySchema, urgencySchema } from "../policy";
 import { categorySchema, ticketTypeSchema } from "../tickets/types";
 
 export const confidenceSchema = z.enum(["baixo", "medio", "alto"]);
@@ -49,12 +49,28 @@ export const decisionSchema = z.object({
     .nullable(),
   options: z.array(z.string().min(1)).max(4),
   reply: z.string().min(1),
+  claimedPriority: prioritySchema.nullable().optional(),
 });
 
 export type Decision = z.infer<typeof decisionSchema>;
 export type Confidence = z.infer<typeof confidenceSchema>;
 export type TransferReason = z.infer<typeof transferReasonSchema>;
 
+export type ToolUse = {
+  id: string;
+  failed: boolean;
+  ticketId: string | null;
+};
+
+export type AgentAnswer = {
+  decision: Decision;
+  toolUses: ToolUse[];
+};
+
 export type Agent = {
-  decide(input: { message: string; employeeId: string; conversationId: string }): Decision;
+  decide(input: {
+    message: string;
+    employeeId: string;
+    conversationId: string;
+  }): AgentAnswer | Promise<AgentAnswer>;
 };

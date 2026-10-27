@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS decision_traces (
   sla_due_at TEXT,
   policy_refused INTEGER NOT NULL,
   transfer_reason TEXT,
+  tool_ids TEXT,
   created_at TEXT NOT NULL
 );
 `;
@@ -129,4 +130,9 @@ export function openDatabase(filePath: string): Client {
 
 export async function migrate(client: Client): Promise<void> {
   await client.executeMultiple(SCHEMA);
+  const columns = await client.execute("PRAGMA table_info(decision_traces)");
+  const names = columns.rows.map((row) => row.name);
+  if (!names.includes("tool_ids")) {
+    await client.execute("ALTER TABLE decision_traces ADD COLUMN tool_ids TEXT");
+  }
 }
