@@ -1,6 +1,6 @@
 # Nexo Assist
 
-Login com cookie httpOnly, chamados em SQLite (`data/nexo.db`, fora do Git), fila do analista e o agent Mastra só de leitura. Sem `OPENAI_API_KEY`, o chat usa o agent falso. Ainda não há as telas do protótipo.
+Login, chat, perfil e console seguem os frames do Pencil. Sem `OPENAI_API_KEY`, o chat usa o agent falso.
 
 ## Rodar
 
@@ -18,7 +18,7 @@ npm run dev
 npm run eval
 ```
 
-Defina `SESSION_SECRET` no `.env` antes do `npm run dev`. Qualquer senha não vazia entra para um e-mail do seed.
+Defina `SESSION_SECRET` no `.env` antes do `npm run dev`. Qualquer senha não vazia entra para um e-mail do seed. A Ana entra em `/atendimento`, o Rafael em `/console`. `POST /api/dev/falha` com `{ "mode": "before-commit" }` só existe fora de produção e faz a confirmação falhar sem gravar o chamado.
 
 ## Postman
 

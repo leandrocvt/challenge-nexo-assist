@@ -26,6 +26,7 @@ export type HistoryMessage = {
   createdAt: string;
   countsTowardLimit: boolean;
   visibleActions: string[];
+  options: string[];
   trace: {
     intent: string;
     evidence: unknown;
@@ -50,6 +51,7 @@ const draftCardSchema = z.object({
   priority: z.string(),
   slaDueAt: z.string(),
   targetTicketId: z.string().nullable(),
+  impact: z.enum(["pessoa", "equipe", "empresa"]).optional(),
 });
 
 export async function listConversations(
@@ -165,6 +167,7 @@ function toMessage(row: Row): HistoryMessage {
     createdAt: text(row, "created_at"),
     countsTowardLimit: integer(row, "counts_toward_limit") === 1,
     visibleActions: payload.visibleActions,
+    options: payload.options,
     trace: hasTrace
       ? {
           intent: text(row, "intent"),
@@ -193,16 +196,23 @@ function toDraftCard(row: Row) {
   };
 }
 
-function parsePayload(value: unknown): { visibleActions: string[] } {
+function parsePayload(value: unknown): { visibleActions: string[]; options: string[] } {
   if (typeof value !== "string") {
-    return { visibleActions: [] };
+    return { visibleActions: [], options: [] };
   }
   const parsed: unknown = JSON.parse(value);
-  if (typeof parsed !== "object" || parsed === null || !("visibleActions" in parsed)) {
-    return { visibleActions: [] };
+  if (typeof parsed !== "object" || parsed === null) {
+    return { visibleActions: [], options: [] };
   }
-  const actions = parsed.visibleActions;
-  return { visibleActions: Array.isArray(actions) ? actions.filter((item) => typeof item === "string") : [] };
+  return {
+    visibleActions: stringList(parsed, "visibleActions"),
+    options: stringList(parsed, "options"),
+  };
+}
+
+function stringList(value: object, key: string): string[] {
+  const list = (value as Record<string, unknown>)[key];
+  return Array.isArray(list) ? list.filter((item) => typeof item === "string") : [];
 }
 
 function parseEvidence(value: unknown): unknown {

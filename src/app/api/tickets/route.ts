@@ -27,6 +27,7 @@ function toJson(ticket: Ticket) {
     priority: ticket.priority,
     status: ticket.status,
     slaDueAt: ticket.slaDueAt.toISOString(),
+    createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     overdue: ticket.overdue,
   };
