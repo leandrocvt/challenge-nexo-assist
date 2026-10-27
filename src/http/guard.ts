@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { AttendanceError } from "../attendance/errors";
 import type { Employee } from "../session/directory";
 import { readSession, SESSION_COOKIE, sessionSecret } from "../session/token";
 import { getApp, type App } from "../server/app";
+import { TicketRuleError, TicketUnavailableError } from "../tickets/errors";
 
 export function errorResponse(status: number, error: string): NextResponse {
   return NextResponse.json({ error }, { status });
@@ -31,4 +33,17 @@ export async function requireEmployee(
 
 export function isResponse(value: { employee: Employee; app: App } | NextResponse): value is NextResponse {
   return value instanceof NextResponse;
+}
+
+export function toErrorResponse(error: unknown): NextResponse | null {
+  if (error instanceof AttendanceError) {
+    return errorResponse(error.status, error.message);
+  }
+  if (error instanceof TicketUnavailableError) {
+    return errorResponse(503, error.message);
+  }
+  if (error instanceof TicketRuleError) {
+    return errorResponse(422, error.message);
+  }
+  return null;
 }

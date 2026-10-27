@@ -1,14 +1,17 @@
 import type { Client } from "@libsql/client";
 
+import { Attendance } from "../attendance/service";
 import { ConversationStore } from "../conversations/store";
 import { Directory } from "../session/directory";
 import { databaseFile, migrate, openDatabase } from "../tickets/db";
 import { TicketService } from "../tickets/service";
 
 export type App = {
+  client: Client;
   tickets: TicketService;
   directory: Directory;
   conversations: ConversationStore;
+  attendance: Attendance;
   close: () => void;
 };
 
@@ -20,10 +23,13 @@ export async function openApp(filePath: string): Promise<App> {
   await migrate(client);
   const tickets = TicketService.bind(client);
   await tickets.seed(new Date());
+  const conversations = new ConversationStore(client);
   return {
+    client,
     tickets,
     directory: new Directory(client),
-    conversations: new ConversationStore(client),
+    conversations,
+    attendance: new Attendance(client, tickets, conversations),
     close: () => closeClient(client),
   };
 }

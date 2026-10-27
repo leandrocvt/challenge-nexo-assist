@@ -7,8 +7,8 @@ export default function Home() {
         telas do Pencil.
       </p>
       <p>
-        O login grava um cookie httpOnly. A lista de chamados só responde
-        para o funcionário da sessão. O agent entra depois.
+        O login grava um cookie httpOnly. O atendimento pausa o agent,
+        guarda rascunho e só grava chamado na confirmação. O modelo entra depois.
       </p>
     </main>
   );
