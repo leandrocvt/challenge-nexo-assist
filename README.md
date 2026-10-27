@@ -1,6 +1,6 @@
 # Nexo Assist
 
-Etapa 1: regras de prioridade, prazo, reabertura e limite de sessão. Ainda não há agent, banco nem as telas do protótipo.
+Etapa 2: regras de prazo e o serviço de chamados em SQLite (`data/nexo.db`, fora do Git). Ainda não há agent nem as telas do protótipo.
 
 ## Rodar
 

@@ -7,8 +7,8 @@ export default function Home() {
         telas do Pencil.
       </p>
       <p>
-        Nesta etapa só existem as regras de prioridade, prazo, reabertura e
-        limite de mensagens. O agent e o serviço de chamados entram depois.
+        Nesta etapa o serviço de chamados grava em SQLite, com prioridade,
+        prazo e reabertura calculados no código. O agent entra depois.
       </p>
     </main>
   );
