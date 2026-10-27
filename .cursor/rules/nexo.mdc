@@ -1,0 +1,29 @@
+---
+description: Invariantes do Nexo Assist que o código precisa garantir
+alwaysApply: true
+---
+
+# Nexo Assist
+
+Especificação: `docs/Desafio_Tecnico_Nexo_Assist_PRD_v5.pdf`.
+Planejamento: `docs/requisitos.md`, `docs/arquitetura.md`, `docs/plano.md`, `docs/cenarios.md`.
+
+- TypeScript `strict`. Entradas HTTP, tools e a decisão do agent passam por Zod.
+- Três limites: interface Next.js, agent Mastra, serviço de chamados. A interface não acessa banco nem LLM.
+- Não montar `@mastra/next` nem publicar a API genérica do Mastra. As rotas nossas chamam o agent em processo.
+- A sessão do servidor define `employeeId` no `RequestContext`. Tool não aceita o funcionário escolhido pelo modelo.
+- Criar, atualizar e reabrir só na confirmação de um rascunho persistido. Não haver tool de escrita.
+- Prioridade, SLA, duplicidade, reabertura, 30 mensagens e pausa do agent são código. O prompt não substitui essas funções.
+- Chamado de um funcionário não aparece para outro. Analista vê só os chamados do funcionário da conversa aberta.
+- Escrita no serviço de chamados usa chave de idempotência. Falha transitória não duplica.
+- Toda resposta do agent persiste ações visíveis, intenção, evidências, regra aplicada, ação e segurança.
+- A UI segue os seis frames do Pencil descritos em `docs/requisitos.md`. Carregamento, erro e o detalhe expandido da decisão não estão desenhados; não inventar esses layouts como se estivessem.
+
+```ts
+// Errado: o modelo escolhe de quem é o chamado
+execute: async ({ employeeId }) => tickets.list(employeeId)
+
+// Certo: o servidor já colocou o id no contexto
+execute: async (_input, context) =>
+  tickets.list(context.requestContext.get("employeeId"))
+```
