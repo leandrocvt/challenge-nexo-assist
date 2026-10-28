@@ -1,2 +1,4 @@
-/** Máquina de atendimento. Entra na etapa 4; a etapa 1 não coloca regra aqui. */
-export {};
+export { Attendance, type DraftCard, type Turn } from "./service";
+export { decideFromText, scriptedAgent } from "./script";
+export { AttendanceError } from "./errors";
+export { decisionSchema, type Agent, type Decision } from "./decision";
