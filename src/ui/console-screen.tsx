@@ -32,6 +32,7 @@ export function ConsoleScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const loadCounts = useCallback(async (analystId: string) => {
     const body = await api<{ conversations: QueueItem[] }>("/api/console/conversations?filter=todas");
@@ -70,6 +71,19 @@ export function ConsoleScreen() {
     setHistory(nextHistory);
     setTickets(nextTickets.tickets);
   }, []);
+
+  useEffect(() => {
+    if (!accountOpen) {
+      return;
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [accountOpen]);
 
   useEffect(() => {
     if (!employee) {
@@ -165,8 +179,8 @@ export function ConsoleScreen() {
   const focusTicket = here[0] ?? null;
 
   return (
-    <div className="grid h-screen min-w-[1440px] grid-cols-[64px_380px_minmax(0,1fr)_340px] bg-paper text-ink">
-      <aside data-region="trilho" className="flex flex-col items-center gap-1.5 border-r border-rule bg-desk py-4">
+    <div className="grid h-dvh grid-cols-[64px_minmax(240px,380px)_minmax(320px,1fr)_minmax(220px,340px)] bg-paper text-ink">
+      <aside data-region="trilho" className="relative z-20 flex flex-col items-center gap-1.5 border-r border-rule bg-desk py-4">
         <div className="grid h-10 w-10 place-items-center pb-2">
           <Mark className="h-[22px] w-[22px]" color="#037AF6" />
         </div>
@@ -178,15 +192,39 @@ export function ConsoleScreen() {
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          title="Sair"
-          className="relative mt-auto grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[12.5px] font-bold text-primary-text"
-          onClick={() => void logout(router)}
-        >
-          {initials(employee.name)}
-          <span className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-desk bg-success" />
-        </button>
+        <div className="relative mt-auto">
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={accountOpen}
+            className="relative grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-[12.5px] font-bold text-primary-text"
+            onClick={() => setAccountOpen((open) => !open)}
+          >
+            {initials(employee.name)}
+            <span className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-desk bg-success" />
+          </button>
+          {accountOpen ? (
+            <>
+              <button type="button" className="fixed inset-0 z-20 cursor-default" aria-label="Fechar" onClick={() => setAccountOpen(false)} />
+              <div
+                role="dialog"
+                aria-label="Sua conta"
+                className="absolute bottom-0 left-12 z-30 w-56 rounded-xl border border-[#1B243117] bg-paper p-3 shadow-[0_12px_40px_rgba(27,36,49,0.12)]"
+              >
+                <p className="truncate text-[13.5px] font-semibold">{employee.name}</p>
+                <p className="truncate text-[11.5px] text-ink-3">{employee.email}</p>
+                <button
+                  type="button"
+                  className="mt-3 flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-[13.5px] font-medium text-ink-2 hover:bg-desk"
+                  onClick={() => void logout(router)}
+                >
+                  <LogoutIcon />
+                  Sair
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
       </aside>
       <section data-region="fila" className="flex min-h-0 flex-col border-r border-rule">
         <div className="flex flex-col gap-3 px-4 pt-4 pb-2.5">
@@ -241,6 +279,7 @@ export function ConsoleScreen() {
             const palette = avatarIndex(row.employeeName);
             const active = row.id === selectedId;
             const tag = tagStyle(row, employee.id);
+            const unread = row.state === "aguardando_analista" && row.unreadCount > 0;
             return (
               <li key={row.id}>
                 <button
@@ -262,11 +301,21 @@ export function ConsoleScreen() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span className="flex-1 truncate text-[15.5px] font-semibold">{row.employeeName}</span>
-                      <span className={`text-[12.5px] ${active ? "font-semibold text-cta" : "text-ink-3"}`}>
+                      <span className={`text-[12.5px] ${unread ? "font-semibold text-cta" : "text-ink-3"}`}>
                         {hourInSaoPaulo(row.updatedAt)}
                       </span>
                     </span>
-                    <span className="mt-0.5 block truncate text-[13.5px] text-ink-3">{row.lastMessage ?? "Sem mensagens"}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-ink-3">
+                      {row.lastAuthor === "agent" || row.lastAuthor === "analyst" ? <Ticks /> : null}
+                      <span className="min-w-0 flex-1 truncate">
+                        {row.lastAuthor === "agent" && row.lastMessage ? `Nexo: ${row.lastMessage}` : (row.lastMessage ?? "Sem mensagens")}
+                      </span>
+                      {unread ? (
+                        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-cta px-1.5 text-[11.5px] font-bold text-white">
+                          {row.unreadCount}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className={`mt-0.5 flex items-center gap-1 text-[11.5px] font-medium ${tag.className}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${tag.dot}`} />
                       {tag.label}
@@ -295,24 +344,26 @@ export function ConsoleScreen() {
                 </p>
               ) : null}
               {assumed ? (
-                <>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
                   <button
                     type="button"
-                    className="flex h-9 items-center rounded-lg border border-[#1B24311F] px-3 text-[13.5px] font-medium text-ink-2"
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#1B24311F] pr-3 pl-2.5 text-[13.5px] font-medium text-ink-2"
                     disabled={busy}
                     onClick={() => void act(`/api/conversations/${selected.id}/return`, {}, "com_agent")}
                   >
+                    <ReturnIcon />
                     Devolver ao agent
                   </button>
                   <button
                     type="button"
-                    className="flex h-9 items-center rounded-lg bg-danger-soft px-3 text-[13.5px] font-semibold text-danger-text"
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-danger-soft pr-3 pl-2.5 text-[13.5px] font-semibold text-danger-text"
                     disabled={busy}
                     onClick={() => void act(`/api/conversations/${selected.id}/close`)}
                   >
+                    <CloseIcon />
                     Encerrar atendimento
                   </button>
-                </>
+                </div>
               ) : null}
             </header>
             <div className="flex flex-1 flex-col justify-end gap-1 overflow-auto px-10 py-5">
@@ -336,32 +387,36 @@ export function ConsoleScreen() {
               ) : null}
               {busy ? <p className="text-[13.5px] text-ink-3">Carregando…</p> : null}
             </div>
-            <div className="flex flex-col gap-2.5 border-t border-rule bg-paper px-5 pt-3 pb-3.5">
+            <div className="flex shrink-0 flex-col gap-2.5 border-t border-rule bg-paper px-5 pt-3 pb-3.5">
               {waiting ? (
-                <div className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-warning-soft text-[12px] font-semibold text-warning-text">
-                    !
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-warning-soft text-warning-text">
+                    <PauseIcon />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-40 flex-1">
                     <p className="text-[14.5px] font-semibold">{firstName} espera um atendente</p>
                     <p className="text-[12.5px] text-ink-3">Agent pausado</p>
                   </div>
-                  <button
-                    type="button"
-                    className="flex h-9 items-center rounded-lg border border-[#1B24311F] px-3.5 text-[13.5px] font-medium text-ink-2"
-                    disabled={busy}
-                    onClick={() => void act(`/api/conversations/${selected.id}/return`, {}, "com_agent")}
-                  >
-                    Devolver ao agent
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-9 items-center rounded-lg bg-cta px-4 text-[13.5px] font-semibold text-white"
-                    disabled={busy}
-                    onClick={() => void act(`/api/conversations/${selected.id}/assume`, undefined, "minhas")}
-                  >
-                    Assumir atendimento
-                  </button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="flex h-9 items-center gap-1.5 rounded-lg border border-[#1B24311F] pr-3.5 pl-3 text-[13.5px] font-medium text-ink-2"
+                      disabled={busy}
+                      onClick={() => void act(`/api/conversations/${selected.id}/return`, {}, "com_agent")}
+                    >
+                      <ReturnIcon />
+                      Devolver ao agent
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-9 items-center gap-1.5 rounded-lg bg-cta pr-4 pl-3.5 text-[13.5px] font-semibold text-white"
+                      disabled={busy}
+                      onClick={() => void act(`/api/conversations/${selected.id}/assume`, undefined, "minhas")}
+                    >
+                      <AssumeIcon />
+                      Assumir atendimento
+                    </button>
+                  </div>
                 </div>
               ) : null}
               <form
@@ -578,10 +633,64 @@ function isToday(iso: string): boolean {
   return format.format(new Date(iso)) === format.format(new Date());
 }
 
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  );
+}
+
 function ChatIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[19px] w-[19px]" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 1 1 18 0z" />
+    </svg>
+  );
+}
+
+function Ticks() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-primary" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M2 12.5l3.2 3.2L12 8" />
+      <path d="M8 12.5l3.2 3.2L20 7" />
+    </svg>
+  );
+}
+
+function ReturnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h9a7 7 0 1 1 0 14h-2" />
+    </svg>
+  );
+}
+
+function AssumeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="10" cy="8" r="3" />
+      <path d="M4 19c1.2-2.6 3.2-3.8 6-3.8" />
+      <path d="M17 11v6M14 14h6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M10 9v6M14 9v6" />
     </svg>
   );
 }

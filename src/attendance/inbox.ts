@@ -16,6 +16,8 @@ export type ConversationRow = {
   transferReason: string | null;
   transferSummary: string | null;
   lastMessage: string | null;
+  lastAuthor: string | null;
+  unreadCount: number;
   updatedAt: string;
 };
 
@@ -106,7 +108,19 @@ export async function listConversations(
     ORDER BY c.updated_at DESC`,
     args,
   });
-  return result.rows.map(toRow);
+  const rows = result.rows.map(toRow);
+  const authors = await authorsByConversation(
+    client,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const sequence = authors.get(row.id) ?? [];
+    return {
+      ...row,
+      lastAuthor: sequence.at(-1) ?? null,
+      unreadCount: row.state === "aguardando_analista" ? unreadForAnalyst(sequence) : 0,
+    };
+  });
 }
 
 export async function readHistory(client: Client, conversationId: string) {
@@ -143,6 +157,51 @@ export async function readHistory(client: Client, conversationId: string) {
   };
 }
 
+/** Mensagens do funcionário que o analista ainda não respondeu. */
+export function unreadForAnalyst(authors: string[]): number {
+  const last = authors.at(-1);
+  if (last === "employee") {
+    return trailingEmployees(authors, authors.length);
+  }
+  if (last === "agent") {
+    return trailingEmployees(authors, authors.length - 1);
+  }
+  return 0;
+}
+
+function trailingEmployees(authors: string[], end: number): number {
+  let count = 0;
+  for (let index = end - 1; index >= 0; index -= 1) {
+    if (authors[index] !== "employee") {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+async function authorsByConversation(client: Client, ids: string[]): Promise<Map<string, string[]>> {
+  const grouped = new Map<string, string[]>();
+  if (ids.length === 0) {
+    return grouped;
+  }
+  const result = await client.execute({
+    sql: `SELECT s.conversation_id AS conversation_id, m.author AS author
+          FROM messages m
+          JOIN sessions s ON s.id = m.session_id
+          WHERE s.conversation_id IN (${ids.map(() => "?").join(", ")})
+          ORDER BY m.created_at ASC, m.id ASC`,
+    args: ids,
+  });
+  for (const row of result.rows) {
+    const id = text(row, "conversation_id");
+    const sequence = grouped.get(id) ?? [];
+    sequence.push(text(row, "author"));
+    grouped.set(id, sequence);
+  }
+  return grouped;
+}
+
 function toRow(row: Row): ConversationRow {
   return {
     id: text(row, "id"),
@@ -153,6 +212,8 @@ function toRow(row: Row): ConversationRow {
     transferReason: optionalText(row, "transfer_reason"),
     transferSummary: optionalText(row, "transfer_summary"),
     lastMessage: optionalText(row, "last_message"),
+    lastAuthor: null,
+    unreadCount: 0,
     updatedAt: text(row, "updated_at"),
   };
 }

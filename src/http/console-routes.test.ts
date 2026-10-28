@@ -82,6 +82,7 @@ it("percorre transferência, fila, pausa sem modelo, resposta do analista e isol
 
     const waiting = await queue(rafael.cookie, "para_voce");
     expect(waiting.map((item) => item.id)).toContain(ana.conversationId);
+    expect(waiting.find((item) => item.id === ana.conversationId)?.unreadCount).toBe(1);
     const withAgent = await queue(rafael.cookie, "com_agent");
     expect(withAgent.map((item) => item.id)).not.toContain(ana.conversationId);
     const byTicket = await queue(rafael.cookie, "todas", "INC-20311");
@@ -214,7 +215,9 @@ async function queue(cookie: string, filter: string, q?: string) {
     : `/api/console/conversations?filter=${filter}`;
   const response = await listQueue(get(pathName, cookie));
   expect(response.status).toBe(200);
-  return ((await response.json()) as { conversations: Array<{ id: string }> }).conversations;
+  return (
+    (await response.json()) as { conversations: Array<{ id: string; unreadCount: number }> }
+  ).conversations;
 }
 
 function confirm(draftId: string, cookie: string) {
