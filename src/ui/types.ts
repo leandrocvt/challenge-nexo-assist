@@ -67,5 +67,7 @@ export type QueueItem = {
   transferReason: string | null;
   transferSummary: string | null;
   lastMessage: string | null;
+  lastAuthor: string | null;
+  unreadCount: number;
   updatedAt: string;
 };
